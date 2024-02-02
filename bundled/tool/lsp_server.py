@@ -35,6 +35,10 @@ update_sys_path(
     os.fspath(BUNDLE_DIR / "libs"),
     os.getenv("LS_IMPORT_STRATEGY", "useBundled"),
 )
+update_sys_path(
+    os.fspath(BUNDLE_DIR / "tool-libs"),
+    os.getenv("LS_IMPORT_STRATEGY", "useBundled"),
+)
 
 
 # **********************************************************
@@ -60,7 +64,7 @@ LSP_SERVER = server.LanguageServer(
 # **********************************************************
 # Tool specific code goes below this.
 # **********************************************************
-TOOL_MODULE = "MeowCodeFormatter"
+TOOL_MODULE = "meow_code_formatter"
 TOOL_DISPLAY = "Meow PEP"
 
 # Default arguments always passed to Meow PEP.
@@ -197,8 +201,6 @@ def initialize(params: lsp.InitializeParams) -> None:
     log_to_output(
         f"Global settings:\r\n{json.dumps(GLOBAL_SETTINGS, indent=4, ensure_ascii=False)}\r\n"
     )
-
-    _log_version_info()
 
     _log_version_info()
 

@@ -32,7 +32,7 @@ if os.getenv("USE_DEBUGPY", None) in ["True", "TRUE", "1", "T"]:
         # This will ensure that execution is paused as soon as the debugger
         # connects to VS Code. If you don't want to pause here comment this
         # line and set breakpoints as appropriate.
-        debugpy.breakpoint()
+        # debugpy.breakpoint()
 
 SERVER_PATH = os.fspath(pathlib.Path(__file__).parent / "lsp_server.py")
 # NOTE: Set breakpoint in `lsp_server.py` before continuing.
