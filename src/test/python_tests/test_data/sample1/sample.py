@@ -1,3 +1,3 @@
 import sys
 
-print(x)
+print('Test Meow Meow')

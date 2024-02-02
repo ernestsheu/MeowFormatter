@@ -4,42 +4,73 @@
 from __future__ import annotations
 
 import contextlib
+import importlib
 import io
 import os
-import os.path
+import pathlib
 import runpy
 import site
 import subprocess
 import sys
+import sysconfig
 import threading
-from typing import Any, Callable, List, Sequence, Tuple, Union
+import traceback
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 # Save the working directory used when loading this module
 SERVER_CWD = os.getcwd()
 CWD_LOCK = threading.Lock()
 
 
-def as_list(content: Union[Any, List[Any], Tuple[Any]]) -> Union[List[Any], Tuple[Any]]:
+def as_list(content: Union[Any, List[Any], Tuple[Any]]) -> List[Any]:
     """Ensures we always get a list"""
     if isinstance(content, (list, tuple)):
-        return content
+        return list(content)
     return [content]
 
 
-# pylint: disable-next=consider-using-generator
-_site_paths = tuple(
-    [
-        os.path.normcase(os.path.normpath(p))
-        for p in (as_list(site.getsitepackages()) + as_list(site.getusersitepackages()))
+def _get_sys_config_paths() -> List[str]:
+    """Returns paths from sysconfig.get_paths()."""
+    return [
+        path
+        for group, path in sysconfig.get_paths().items()
+        if group not in ["data", "platdata", "scripts"]
     ]
+
+
+def _get_extensions_dir() -> List[str]:
+    """This is the extensions folder under ~/.vscode or ~/.vscode-server."""
+
+    # The path here is calculated relative to the tool
+    # this is because users can launch VS Code with custom
+    # extensions folder using the --extensions-dir argument
+    path = pathlib.Path(__file__).parent.parent.parent.parent
+    #                              ^     bundled  ^  extensions
+    #                            tool        <extension>
+    if path.name == "extensions":
+        return [os.fspath(path)]
+    return []
+
+
+_stdlib_paths = set(
+    str(pathlib.Path(p).resolve())
+    for p in (
+        as_list(site.getsitepackages())
+        + as_list(site.getusersitepackages())
+        + _get_sys_config_paths()
+        + _get_extensions_dir()
+    )
 )
 
 
-def is_same_path(file_path1, file_path2) -> bool:
+def is_same_path(file_path1: str, file_path2: str) -> bool:
     """Returns true if two paths are the same."""
-    return os.path.normcase(os.path.normpath(file_path1)) == os.path.normcase(
-        os.path.normpath(file_path2)
-    )
+    return pathlib.Path(file_path1) == pathlib.Path(file_path2)
+
+
+def normalize_path(file_path: str) -> str:
+    """Returns normalized path."""
+    return str(pathlib.Path(file_path).resolve())
 
 
 def is_current_interpreter(executable) -> bool:
@@ -47,18 +78,19 @@ def is_current_interpreter(executable) -> bool:
     return is_same_path(executable, sys.executable)
 
 
-def is_stdlib_file(file_path) -> bool:
-    """Return True if the file belongs to standard library."""
-    return os.path.normcase(os.path.normpath(file_path)).startswith(_site_paths)
+def is_stdlib_file(file_path: str) -> bool:
+    """Return True if the file belongs to the standard library."""
+    normalized_path = str(pathlib.Path(file_path).resolve())
+    return any(normalized_path.startswith(path) for path in _stdlib_paths)
 
 
 # pylint: disable-next=too-few-public-methods
 class RunResult:
     """Object to hold result from running tool."""
 
-    def __init__(self, stdout: str, stderr: str):
-        self.stdout: str = stdout
-        self.stderr: str = stderr
+    def __init__(self, stdout, stderr):
+        self.stdout = stdout
+        self.stderr = stderr
 
 
 class CustomIO(io.TextIOWrapper):
@@ -118,6 +150,12 @@ def _run_module(
         with substitute_attr(sys, "argv", argv):
             with redirect_io("stdout", str_output):
                 with redirect_io("stderr", str_error):
+                    try:
+                        import meow_code_formatter
+                        importlib.reload(MeowCodeFormatter)
+                    except:
+                        str_error.write("Mitigation for `MeowCodeFormatter` issue")
+                        str_error.write(f"Error reloading MeowCodeFormatter: {traceback.format_exc()}\n")
                     if use_stdin and source is not None:
                         str_input = CustomIO("<stdin>", encoding="utf-8", newline="\n")
                         with redirect_io("stdin", str_input):
@@ -144,9 +182,16 @@ def run_module(
 
 
 def run_path(
-    argv: Sequence[str], use_stdin: bool, cwd: str, source: str = None
+    argv: Sequence[str],
+    use_stdin: bool,
+    cwd: str,
+    source: str = None,
+    env: Optional[Dict[str, str]] = None,
 ) -> RunResult:
     """Runs as an executable."""
+    new_env = os.environ.copy()
+    if env is not None:
+        new_env.update(env)
     if use_stdin:
         with subprocess.Popen(
             argv,
@@ -155,6 +200,7 @@ def run_path(
             stderr=subprocess.PIPE,
             stdin=subprocess.PIPE,
             cwd=cwd,
+            env=new_env,
         ) as process:
             return RunResult(*process.communicate(input=source))
     else:
@@ -165,12 +211,13 @@ def run_path(
             stderr=subprocess.PIPE,
             check=False,
             cwd=cwd,
+            env=new_env,
         )
         return RunResult(result.stdout, result.stderr)
 
 
 def run_api(
-    callback: Callable[[Sequence[str], CustomIO, CustomIO, CustomIO | None], None],
+    callback: Callable[[Sequence[str], CustomIO, CustomIO, Optional[CustomIO]], None],
     argv: Sequence[str],
     use_stdin: bool,
     cwd: str,
@@ -185,7 +232,7 @@ def run_api(
 
 
 def _run_api(
-    callback: Callable[[Sequence[str], CustomIO, CustomIO, CustomIO | None], None],
+    callback: Callable[[Sequence[str], CustomIO, CustomIO, Optional[CustomIO]], None],
     argv: Sequence[str],
     use_stdin: bool,
     source: str = None,

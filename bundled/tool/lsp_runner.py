@@ -18,13 +18,17 @@ def update_sys_path(path_to_add: str, strategy: str) -> None:
     if path_to_add not in sys.path and os.path.isdir(path_to_add):
         if strategy == "useBundled":
             sys.path.insert(0, path_to_add)
-        elif strategy == "fromEnvironment":
+        # elif strategy == "fromEnvironment":
+        else:
             sys.path.append(path_to_add)
 
 
 # Ensure that we can import LSP libraries, and other bundled libraries.
+BUNDLE_DIR = pathlib.Path(__file__).parent.parent
+# Always use bundled server files.
+update_sys_path(os.fspath(BUNDLE_DIR / "tool"), "useBundled")
 update_sys_path(
-    os.fspath(pathlib.Path(__file__).parent.parent / "libs"),
+    os.fspath(BUNDLE_DIR / "libs"),
     os.getenv("LS_IMPORT_STRATEGY", "useBundled"),
 )
 
@@ -45,11 +49,11 @@ while not EXIT_NOW:
         continue
 
     if method == "run":
-        is_exception = False
+        is_exception = False  # pylint: disable=invalid-name
         # This is needed to preserve sys.path, pylint modifies
         # sys.path and that might not work for this scenario
         # next time around.
-        with utils.substitute_attr(sys, "path", sys.path[:]):
+        with utils.substitute_attr(sys, "path", [""] + sys.path[:]):
             try:
                 # TODO: `utils.run_module` is equivalent to running `python -m <pytool-module>`.
                 # If your tool supports a programmatic API then replace the function below
@@ -65,11 +69,10 @@ while not EXIT_NOW:
                 )
             except Exception:  # pylint: disable=broad-except
                 result = utils.RunResult("", traceback.format_exc(chain=True))
-                is_exception = True
+                is_exception = True  # pylint: disable=invalid-name
 
-        response = {"id": msg["id"]}
-        if result.stderr:
-            response["error"] = result.stderr
+        response = {"id": msg["id"], "error": result.stderr}
+        if is_exception:
             response["exception"] = is_exception
         elif result.stdout:
             response["result"] = result.stdout

@@ -4,6 +4,8 @@
 import { ConfigurationChangeEvent, ConfigurationScope, WorkspaceConfiguration, WorkspaceFolder } from 'vscode';
 import { getInterpreterDetails } from './python';
 import { getConfiguration, getWorkspaceFolders } from './vscodeapi';
+import { traceInfo, traceLog, traceWarn } from './logging';
+import { EXTENSION_ID } from './constants';
 
 export interface ISettings {
     cwd: string;
@@ -19,7 +21,12 @@ export function getExtensionSettings(namespace: string, includeInterpreter?: boo
     return Promise.all(getWorkspaceFolders().map((w) => getWorkspaceSettings(namespace, w, includeInterpreter)));
 }
 
-function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[] {
+function resolveVariables(
+    value: string[],
+    workspace?: WorkspaceFolder,
+    interpreter?: string[],
+    env?: NodeJS.ProcessEnv,
+): string[] {
     const substitutions = new Map<string, string>();
     const home = process.env.HOME || process.env.USERPROFILE;
     if (home) {
@@ -33,12 +40,35 @@ function resolveVariables(value: string[], workspace?: WorkspaceFolder): string[
         substitutions.set('${workspaceFolder:' + w.name + '}', w.uri.fsPath);
     });
 
-    return value.map((s) => {
+    env = env || process.env;
+    if (env) {
+        for (const [key, value] of Object.entries(env)) {
+            if (value) {
+                substitutions.set('${env:' + key + '}', value);
+            }
+        }
+    }
+
+    const modifiedValue = [];
+    for (const v of value) {
+        if (interpreter && v === '${interpreter}') {
+            modifiedValue.push(...interpreter);
+        } else {
+            modifiedValue.push(v);
+        }
+    }
+
+    return modifiedValue.map((s) => {
         for (const [key, value] of substitutions) {
             s = s.replace(key, value);
         }
         return s;
     });
+}
+
+function getCwd(config: WorkspaceConfiguration, workspace: WorkspaceFolder): string {
+    const cwd = config.get<string>('cwd', workspace.uri.fsPath);
+    return resolveVariables([cwd], workspace)[0];
 }
 
 export function getInterpreterFromSetting(namespace: string, scope?: ConfigurationScope) {
@@ -57,25 +87,39 @@ export async function getWorkspaceSettings(
     if (includeInterpreter) {
         interpreter = getInterpreterFromSetting(namespace, workspace) ?? [];
         if (interpreter.length === 0) {
+            traceLog(`No interpreter found from setting ${namespace}.interpreter`);
+            traceLog(`Getting interpreter from ms-python.python extension for workspace ${workspace.uri.fsPath}`);
             interpreter = (await getInterpreterDetails(workspace.uri)).path ?? [];
+            if (interpreter.length > 0) {
+                traceLog(
+                    `Interpreter from ms-python.python extension for ${workspace.uri.fsPath}:`,
+                    `${interpreter.join(' ')}`,
+                );
+            }
+        } else {
+            traceLog(`Interpreter from setting ${namespace}.interpreter: ${interpreter.join(' ')}`);
+        }
+
+        if (interpreter.length === 0) {
+            traceLog(`No interpreter found for ${workspace.uri.fsPath} in settings or from ms-python.python extension`);
         }
     }
 
     const workspaceSetting = {
-        cwd: workspace.uri.fsPath,
+        cwd: getCwd(config, workspace),
         workspace: workspace.uri.toString(),
-        args: resolveVariables(config.get<string[]>(`args`) ?? [], workspace),
-        path: resolveVariables(config.get<string[]>(`path`) ?? [], workspace),
+        args: resolveVariables(config.get<string[]>('args', []), workspace),
+        path: resolveVariables(config.get<string[]>('path', []), workspace, interpreter),
         interpreter: resolveVariables(interpreter, workspace),
-        importStrategy: config.get<string>(`importStrategy`) ?? 'useBundled',
-        showNotifications: config.get<string>(`showNotifications`) ?? 'off',
+        importStrategy: config.get<string>('importStrategy', 'useBundled'),
+        showNotifications: config.get<string>('showNotifications', 'off'),
     };
     return workspaceSetting;
 }
 
-function getGlobalValue<T>(config: WorkspaceConfiguration, key: string, defaultValue: T): T {
+function getGlobalValue<T>(config: WorkspaceConfiguration, key: string): T | undefined {
     const inspect = config.inspect<T>(key);
-    return inspect?.globalValue ?? inspect?.defaultValue ?? defaultValue;
+    return inspect?.globalValue ?? inspect?.defaultValue;
 }
 
 export async function getGlobalSettings(namespace: string, includeInterpreter?: boolean): Promise<ISettings> {
@@ -83,7 +127,7 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
 
     let interpreter: string[] = [];
     if (includeInterpreter) {
-        interpreter = getGlobalValue<string[]>(config, 'interpreter', []);
+        interpreter = getGlobalValue<string[]>(config, 'interpreter') ?? [];
         if (interpreter === undefined || interpreter.length === 0) {
             interpreter = (await getInterpreterDetails()).path ?? [];
         }
@@ -92,17 +136,18 @@ export async function getGlobalSettings(namespace: string, includeInterpreter?: 
     const setting = {
         cwd: process.cwd(),
         workspace: process.cwd(),
-        args: getGlobalValue<string[]>(config, 'args', []),
-        path: getGlobalValue<string[]>(config, 'path', []),
-        interpreter: interpreter,
-        importStrategy: getGlobalValue<string>(config, 'importStrategy', 'useBundled'),
-        showNotifications: getGlobalValue<string>(config, 'showNotifications', 'off'),
+        args: getGlobalValue<string[]>(config, 'args') ?? [],
+        path: getGlobalValue<string[]>(config, 'path') ?? [],
+        interpreter: interpreter ?? [],
+        importStrategy: getGlobalValue<string>(config, 'importStrategy') ?? 'useBundled',
+        showNotifications: getGlobalValue<string>(config, 'showNotifications') ?? 'off',
     };
     return setting;
 }
 
 export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespace: string): boolean {
     const settings = [
+        `${namespace}.cwd`,
         `${namespace}.args`,
         `${namespace}.path`,
         `${namespace}.interpreter`,
@@ -111,4 +156,48 @@ export function checkIfConfigurationChanged(e: ConfigurationChangeEvent, namespa
     ];
     const changed = settings.map((s) => e.affectsConfiguration(s));
     return changed.includes(true);
+}
+
+export function logDefaultFormatter(): void {
+    getWorkspaceFolders().forEach((workspace) => {
+        let config = getConfiguration('editor', { uri: workspace.uri, languageId: 'python' });
+        if (!config) {
+            config = getConfiguration('editor', workspace.uri);
+            if (!config) {
+                traceInfo('Unable to get editor configuration');
+            }
+        }
+        const formatter = config.get<string>('defaultFormatter', '');
+        traceInfo(`Default formatter is set to ${formatter} for workspace ${workspace.uri.fsPath}`);
+        if (formatter !== EXTENSION_ID) {
+            traceWarn(`MeowFormatter Formatter is NOT set as the default formatter for workspace ${workspace.uri.fsPath}`);
+            traceWarn(
+                'To set MeowFormatter Formatter as the default formatter, add the following to your settings.json file:',
+            );
+            traceWarn(`\n"[python]": {\n    "editor.defaultFormatter": "${EXTENSION_ID}"\n}`);
+        }
+    });
+}
+
+export function logLegacySettings(): void {
+    getWorkspaceFolders().forEach((workspace) => {
+        try {
+            const legacyConfig = getConfiguration('python', workspace.uri);
+            const legacyArgs = legacyConfig.get<string[]>('formatting.MeowFormatterArgs', []);
+            const legacyPath = legacyConfig.get<string>('formatting.MeowFormatterPath', '');
+            if (legacyArgs.length > 0) {
+                traceWarn(`"python.formatting.MeowFormatterArgs" is deprecated. Use "MeowFormatter.args" instead.`);
+                traceWarn(`"python.formatting.MeowFormatterArgs" for workspace ${workspace.uri.fsPath}:`);
+                traceWarn(`\n${JSON.stringify(legacyArgs, null, 4)}`);
+            }
+
+            if (legacyPath.length > 0 && legacyPath !== 'MeowFormatter') {
+                traceWarn(`"python.formatting.MeowFormatterPath" is deprecated. Use "MeowFormatter.path" instead.`);
+                traceWarn(`"python.formatting.MeowFormatterPath" for workspace ${workspace.uri.fsPath}:`);
+                traceWarn(`\n${JSON.stringify(legacyPath, null, 4)}`);
+            }
+        } catch (err) {
+            traceWarn(`Error while logging legacy settings: ${err}`);
+        }
+    });
 }

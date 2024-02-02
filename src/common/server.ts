@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 import * as fsapi from 'fs-extra';
-import { Disposable, env, LogOutputChannel } from 'vscode';
+import { Disposable, env, l10n, LanguageStatusSeverity, LogOutputChannel, Uri, WorkspaceFolder } from 'vscode';
 import { State } from 'vscode-languageclient';
 import {
     LanguageClient,
@@ -11,11 +11,13 @@ import {
     ServerOptions,
 } from 'vscode-languageclient/node';
 import { DEBUG_SERVER_SCRIPT_PATH, SERVER_SCRIPT_PATH } from './constants';
-import { traceError, traceInfo, traceVerbose } from './log/logging';
+import { traceError, traceInfo, traceVerbose } from './logging';
 import { getDebuggerPath } from './python';
-import { getExtensionSettings, getGlobalSettings, getWorkspaceSettings, ISettings } from './settings';
-import { getLSClientTraceLevel, getProjectRoot } from './utilities';
+import { getExtensionSettings, getGlobalSettings, ISettings } from './settings';
+import { getLSClientTraceLevel } from './utilities';
 import { isVirtualWorkspace } from './vscodeapi';
+import { updateStatus } from './status';
+import { unregisterEmptyFormatter } from './nullFormatter';
 
 export type IInitOptions = { settings: ISettings[]; globalSettings: ISettings };
 
@@ -27,7 +29,7 @@ async function createServer(
     initializationOptions: IInitOptions,
 ): Promise<LanguageClient> {
     const command = settings.interpreter[0];
-    const cwd = settings.cwd;
+    const cwd = settings.cwd === '${fileDirname}' ? Uri.parse(settings.workspace).fsPath : settings.cwd;
 
     // Set debugger path needed for debugging python code.
     const newEnv = { ...process.env };
@@ -44,6 +46,8 @@ async function createServer(
 
     // Set notification type
     newEnv.LS_SHOW_NOTIFICATION = settings.showNotifications;
+
+    newEnv.PYTHONUTF8 = '1';
 
     const args =
         newEnv.USE_DEBUGPY === 'False' || !isDebugScript
@@ -79,6 +83,7 @@ async function createServer(
 
 let _disposables: Disposable[] = [];
 export async function restartServer(
+    workspaceSetting: ISettings,
     serverId: string,
     serverName: string,
     outputChannel: LogOutputChannel,
@@ -86,17 +91,21 @@ export async function restartServer(
 ): Promise<LanguageClient | undefined> {
     if (lsClient) {
         traceInfo(`Server: Stop requested`);
-        await lsClient.stop();
+        try {
+            await lsClient.stop();
+        } catch (ex) {
+            traceError(`Server: Stop failed: ${ex}`);
+        }
         _disposables.forEach((d) => d.dispose());
         _disposables = [];
     }
-    const projectRoot = await getProjectRoot();
-    const workspaceSetting = await getWorkspaceSettings(serverId, projectRoot, true);
+    updateStatus(undefined, LanguageStatusSeverity.Information, true);
 
     const newLSClient = await createServer(workspaceSetting, serverId, serverName, outputChannel, {
         settings: await getExtensionSettings(serverId, true),
         globalSettings: await getGlobalSettings(serverId, false),
     });
+
     traceInfo(`Server: Start requested.`);
     _disposables.push(
         newLSClient.onDidChangeState((e) => {
@@ -106,9 +115,11 @@ export async function restartServer(
                     break;
                 case State.Starting:
                     traceVerbose(`Server State: Starting`);
+                    unregisterEmptyFormatter();
                     break;
                 case State.Running:
                     traceVerbose(`Server State: Running`);
+                    updateStatus(undefined, LanguageStatusSeverity.Information, false);
                     break;
             }
         }),
@@ -116,11 +127,9 @@ export async function restartServer(
     try {
         await newLSClient.start();
     } catch (ex) {
+        updateStatus(l10n.t('Server failed to start.'), LanguageStatusSeverity.Error);
         traceError(`Server: Start failed: ${ex}`);
-        return undefined;
     }
-
-    const level = getLSClientTraceLevel(outputChannel.logLevel, env.logLevel);
-    await newLSClient.setTrace(level);
+    await newLSClient.setTrace(getLSClientTraceLevel(outputChannel.logLevel, env.logLevel));
     return newLSClient;
 }

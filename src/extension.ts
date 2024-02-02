@@ -3,19 +3,21 @@
 
 import * as vscode from 'vscode';
 import { LanguageClient } from 'vscode-languageclient/node';
-import { registerLogger, traceError, traceLog, traceVerbose } from './common/log/logging';
-import {
-    checkVersion,
-    getInterpreterDetails,
-    initializePython,
-    onDidChangePythonInterpreter,
-    resolveInterpreter,
-} from './common/python';
 import { restartServer } from './common/server';
-import { checkIfConfigurationChanged, getInterpreterFromSetting } from './common/settings';
+import { registerLogger, traceError, traceLog, traceVerbose } from './common/logging';
+import { initializePython, onDidChangePythonInterpreter } from './common/python';
+import {
+    checkIfConfigurationChanged,
+    getInterpreterFromSetting,
+    getWorkspaceSettings,
+    logDefaultFormatter,
+    logLegacySettings,
+} from './common/settings';
 import { loadServerDefaults } from './common/setup';
-import { getLSClientTraceLevel } from './common/utilities';
+import { getProjectRoot } from './common/utilities';
 import { createOutputChannel, onDidChangeConfiguration, registerCommand } from './common/vscodeapi';
+import { registerEmptyFormatter } from './common/nullFormatter';
+import { registerLanguageStatusItem, updateStatus } from './common/status';
 
 let lsClient: LanguageClient | undefined;
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
@@ -29,52 +31,34 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     const outputChannel = createOutputChannel(serverName);
     context.subscriptions.push(outputChannel, registerLogger(outputChannel));
 
-    const changeLogLevel = async (c: vscode.LogLevel, g: vscode.LogLevel) => {
-        const level = getLSClientTraceLevel(c, g);
-        await lsClient?.setTrace(level);
-    };
-
-    context.subscriptions.push(
-        outputChannel.onDidChangeLogLevel(async (e) => {
-            await changeLogLevel(e, vscode.env.logLevel);
-        }),
-        vscode.env.onDidChangeLogLevel(async (e) => {
-            await changeLogLevel(outputChannel.logLevel, e);
-        }),
-    );
-
-    // Log Server information
-    traceLog(`Name: ${serverInfo.name}`);
+    traceLog(`Name: ${serverName}`);
     traceLog(`Module: ${serverInfo.module}`);
-    traceVerbose(`Full Server Info: ${JSON.stringify(serverInfo)}`);
+    traceVerbose(`Configuration: ${JSON.stringify(serverInfo)}`);
 
     const runServer = async () => {
-        const interpreter = getInterpreterFromSetting(serverId);
-        if (interpreter && interpreter.length > 0) {
-            if (checkVersion(await resolveInterpreter(interpreter))) {
-                traceVerbose(`Using interpreter from ${serverInfo.module}.interpreter: ${interpreter.join(' ')}`);
-                lsClient = await restartServer(serverId, serverName, outputChannel, lsClient);
-            }
-            return;
-        }
-
-        const interpreterDetails = await getInterpreterDetails();
-        if (interpreterDetails.path) {
-            traceVerbose(`Using interpreter from Python extension: ${interpreterDetails.path.join(' ')}`);
-            lsClient = await restartServer(serverId, serverName, outputChannel, lsClient);
-            return;
-        }
-
-        traceError(
-            'Python interpreter missing:\r\n' +
-                '[Option 1] Select python interpreter using the ms-python.python.\r\n' +
-                `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n` +
+        const projectRoot = await getProjectRoot();
+        const workspaceSetting = await getWorkspaceSettings(serverId, projectRoot, true);
+        if (workspaceSetting.interpreter.length === 0) {
+            updateStatus(vscode.l10n.t('Please select a Python interpreter.'), vscode.LanguageStatusSeverity.Error);
+            traceError(
+                'Python interpreter missing:\r\n' +
+                    '[Option 1] Select python interpreter using the ms-python.python.\r\n' +
+                    `[Option 2] Set an interpreter using "${serverId}.interpreter" setting.\r\n`,
                 'Please use Python 3.8 or greater.',
-        );
+            );
+        } else {
+            lsClient = await restartServer(workspaceSetting, serverId, serverName, outputChannel, lsClient);
+        }
     };
 
     context.subscriptions.push(
         onDidChangePythonInterpreter(async () => {
+            await runServer();
+        }),
+        registerCommand(`${serverId}.showLogs`, async () => {
+            outputChannel.show();
+        }),
+        registerCommand(`${serverId}.restart`, async () => {
             await runServer();
         }),
         onDidChangeConfiguration(async (e: vscode.ConfigurationChangeEvent) => {
@@ -82,10 +66,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
                 await runServer();
             }
         }),
-        registerCommand(`${serverId}.restart`, async () => {
-            await runServer();
-        }),
+        registerLanguageStatusItem(serverId, serverName, `${serverId}.showLogs`),
     );
+
+    // This is needed to ensure that the formatter is registered before the
+    // language server is started. If the language server takes too long to start,
+    // and user triggers formatting, they can see a weird message that formatting
+    // although registered by extension it is not supported.
+    registerEmptyFormatter();
+
+    // This is needed to inform users that they might have not set this extension
+    // as the formatter. Instructions are printed in the output channel on how to
+    // set it.
+    logDefaultFormatter();
+
+    // This is needed to inform users that they might have some legacy settings that
+    // are no longer supported. Instructions are printed in the output channel on how
+    // to update them.
+    logLegacySettings();
 
     setImmediate(async () => {
         const interpreter = getInterpreterFromSetting(serverId);
