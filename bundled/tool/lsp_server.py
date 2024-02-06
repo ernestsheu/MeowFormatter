@@ -234,13 +234,17 @@ def _log_version_info() -> None:
                     'Install Meow PEP in your environment and set "MeowCodeFormatter.importStrategy": "fromEnvironment"'
                 )
 
-            # This is text we get from running `MeowCodeFormatter --version`
-            # MeowCodeFormatter 1.7.0 (pycodestyle: 2.9.1) <--- This is the version we want.
-            first_line = result.stdout.splitlines(keepends=False)[0]
+            # This is text we get from running `MeowPEP --version`
+            # MeowPEP 1.7.0 <--- This is the version we want.
+            cont_lines = result.stdout.splitlines(keepends=False)
+            first_line = cont_lines[0]
             actual_version = first_line.split(" ")[1]
 
             version = parse_version(actual_version)
             min_version = parse_version(MIN_VERSION)
+            
+            # log_to_output(str(version))
+            # log_to_output(str(min_version))
 
             if version < min_version:
                 log_error(
