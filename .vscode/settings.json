@@ -16,7 +16,9 @@
     "python.testing.cwd": "${workspaceFolder}",
     "python.analysis.extraPaths": ["bundled/libs"],
     "[typescript]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.defaultFormatter": null,
         "editor.formatOnSave": true
     },
+    "editor.suggest.snippetsPreventQuickSuggestions": true,
+    "editor.suggest.showStatusBar": false,
 }
