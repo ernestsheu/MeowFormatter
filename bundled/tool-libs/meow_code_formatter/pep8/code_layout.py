@@ -117,13 +117,8 @@ def repl_op(m, **kwargs):
     matched = m.group()
 
     ignores = kwargs.get('ignores', None)
-    string_positions = kwargs.get('string_positions', None)
 
     if ignores and any(operator in matched for operator in ignores):
-        return matched
-
-    if string_positions and _within_string(m.start(), string_positions):
-        print('%s, pos: %s' % (matched, m.start()))
         return matched
 
     rep = m.groups()
@@ -165,6 +160,7 @@ def _pt_operation(content, *args, **kwargs):
 
         if ret_cont == tmp_cont:
             break
+
         tmp_cont = ret_cont
 
         if False:
@@ -189,10 +185,6 @@ def _pt_operation(content, *args, **kwargs):
 
 def repl_comma(m, **kwargs):
     rep = m.groups()
-    within_string = kwargs.get('within_string', None)
-
-    if within_string and within_string(m.start()):
-        return m.group()
 
     if rep[0] == '\n' and rep[3] is None:
         return m.group()
@@ -212,10 +204,29 @@ def _pt_comma(content, *args, **kwargs):
     prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
     tmp_cont = content
     while True:
-        ret_cont = prog1.sub(lambda x: repl_comma(x, **kwargs), tmp_cont)
+        string_list = search_string_position(tmp_cont)
+        m_list = [(m, None) for m in prog1.finditer(tmp_cont)]
+
+        m_list = sorted(m_list, key = lambda m: m[0].start(), reverse = True)
+        m_list = [m for m in m_list if not _within_string(m[0].start(), string_list)]
+
+        ret_cont = tmp_cont
+        for m in m_list:
+            keys = repl_comma(m[0])
+            if keys == m[0].group():
+                continue
+            ret_cont = ret_cont[:m[0].start()] + keys + ret_cont[m[0].end():]
+
         if ret_cont == tmp_cont:
             break
+
         tmp_cont = ret_cont
+
+        if False:
+            ret_cont = prog1.sub(lambda x: repl_comma(x, **kwargs), tmp_cont)
+            if ret_cont == tmp_cont:
+                break
+            tmp_cont = ret_cont
     return ret_cont
 
 def repl_anno(m, **kwargs):
@@ -283,7 +294,8 @@ from ...utils.proc import force_kill_process, kill_all_child_process
 from ...locale  \\
     import init as load_language    \\
         , get_supported_languages_with_name \\
-        , _DEF_LOCALE as DEF_LOCALE, _key
+        , _DEF_LOCALE as DEF_LOCALE \\
+        , _key
 
 from ...utils.web.messenger \\
     import line_notify      \\
@@ -316,7 +328,6 @@ abc=func(aa,bbb,cc=['abc','ccc'] ,dd=(1,) ,ff=12354)
 abc=func(aa,bbb,cc=['abc','ccc'] , dd=(1,) , ff=12354)
 abc=func(aa,bbb,cc=['abc','ccc']  , dd=(1,) , ff=12354)
 abc=func(aa,bbb,cc=['abc','ccc']  ,dd=(1,) ,ff=12354)
-
 
 text = \'\'\' x<<3 x|3
     prog1 = re.compile('#(\S)')
@@ -426,6 +437,219 @@ anno_list += [(tmp_list[idx][0], tmp_list[idx + 1][1]) for idx in range(0, len(t
 '''
     return cont
 
+def _check_plain_text(content):
+    answer = '''import builtins
+import cv2
+import gc
+import json
+import logging
+import os
+import copy
+import numpy as np
+import PIL.Image, PIL.ImageTk, PIL.ImageDraw, PIL.ImageFont
+import platform
+
+from binascii import b2a_hex
+from datetime import datetime
+from time import time, sleep
+
+import tkinter as tk
+import tkinter.ttk as ttk
+import tkinter.font as tkFont
+from tkinter import messagebox, filedialog
+
+from .node_cfg \\
+    import switch_theme as tk_node_cfg_theme \\
+        , NodeConfigurationDialog
+from .pref_pages \\
+    import switch_theme as tk_pref_pages_theme \\
+        , PreferencePages
+from .repair_pages \\
+    import switch_theme as tk_repair_pages_theme \\
+        , RepairPages
+from .theme_mgr import ThemeManager
+from .unittest import UnitTest
+
+from ...utils.proc import force_kill_process, kill_all_child_process
+from ...locale  \\
+    import init as load_language    \\
+        , get_supported_languages_with_name \\
+        , _DEF_LOCALE as DEF_LOCALE \\
+        , _key
+
+from ...utils.web.messenger \\
+    import line_notify      \\
+        , google_chat       \\
+        , MSG_ENG           \\
+        , MSG_CUSTOMER_AREA \\
+        , MSG_CUSTOMER      \\
+        , MSG_ENG_SPECIFIC  \\
+        , MSG_ENG_ATTEN
+
+from ...versions import __version__, __prog_name__, __copyright__
+
+_TITLE = \\
+    '{title} {version} {comment}'.format(
+        version = __version__,
+        title = __prog_name__,
+        comment = ''
+        )
+
+filename = os.path.basename(output_file)
+output_path = os.path.dirname(output_file)
+metadata = None
+with GoogleDrive(cred_file = cred_file, channel = channel) as gldrv:
+output_path = os.path.dirname(output_file)
+metadata = None
+
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1, ), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1, ), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1, ), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1, ), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1, ), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1, ), ff = 12354)
+
+text = \'\'\' x<<3 x|3
+    prog1 = re.compile('#(\S)')
+    prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
+    However, in a slice the colon acts like a binary operator,
+    and should have equal amounts on either side
+    (treating it as the operator with the lowest priority).
+    In an extended slice, both colons must have the same amount of spacing applied.
+    Exception: when a slice parameter is omitted, the space is omitted:
+
+    x=x&3
+    x=x|3
+    x=x^3
+    x=x>>3
+    x=x<<3
+    \'\'\'
+
+#this is annotations
+#-#-- this is annotations --------
+output_path = os.path.dirname(output_file)
+metadata = None
+x = x + 10 - 15
+x = x + 10 - 15
+y = x - 1 - 1
+i = i + 1
+submitted += 1
+x = x * 2 - 1
+hypot2 = x * x + y * y
+c = (a + b) * (a - b)
+c = (a + b) * \\
+     (a - b)
+c = (a + b) \\
+    * (a - b)
+
+if not(x < 5 or x < 10):
+    aa = x & c
+    aa = x | y
+if x < 5 or x < 10:
+    bb = x ^ y
+    bb = ~x
+if x < 5 and x < 10:
+    cc = x << 2
+    dd = x >> 2
+
+if not(x < 5 and x < 10):
+    x += 10
+    x -= 10
+    x *= 10
+    x /= 10
+
+y = x == y
+y = x < y
+y = x > y
+y = x != y
+y = x <> y
+y = x <= y
+y = x >= y
+
+x = 5
+x = x + 3 # aaaaa
+x = x - 3     # cccc
+x = x * 3   # ssdffs
+x = x / 3
+x = x%3
+x = x // 3
+x = x ** 3
+x = x & 3
+x = x | 3
+x = x ^ 3
+x = x >> 3
+x = x << 3
+
+x = 'x|3'
+x = 'x^3'
+x = 'x>>3'
+x = 'x<<3'
+
+x = "x|3"
+x = "x^3"
+x = "x>>3"
+x = "x<<3"
+
+x = "x|3"
+x = "x^3"
+x = "x>>3"
+x = \'\'\' x<<3 prog1=re.compile('#(\S)') x**=3\'\'\'
+
+x = 5
+x += 3
+x -= 3
+x *= 3
+x /= 3
+x %= 3
+x //= 33
+x **= 33
+x &= 3
+x |= 3
+x ^= 3
+x >>= 33
+x <<= 33
+
+prog1 = re.compile('#(\S)')
+prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
+
+anno_list += [(tmp_list[idx][0], tmp_list[idx + 1][1]) for idx in range(0, len(tmp_list), 2)]'''
+
+    if answer == content:
+        print('Same.')
+        return True
+
+    # print('Not Same\n')
+
+    src_lines = [ll.rstrip() for ll in content.splitlines()]
+    dst_lines = [ll.rstrip() for ll in answer.splitlines()]
+
+    src_len = len(src_lines)
+    dst_len = len(dst_lines)
+    max_len = max(src_len, dst_len)
+
+    for idx in range(max_len):
+        if idx >= src_len:
+            print('Source content to end. %s/%s' % (src_len, dst_len))
+            break
+
+        if idx >= dst_len:
+            print('Target content to end. %s/%s' % (src_len, dst_len))
+            break
+
+        sl = src_lines[idx]
+        dl = dst_lines[idx]
+        if sl != dl:
+            print('src: %s' % sl)
+            print('dst: %s' % dl)
+            break
+    else:
+        print('Lines compare all pass')
+        return False
+
+    print('Error')
+
+    return False
+
 def test1():
     from time import time
     st = time()
@@ -434,12 +658,15 @@ def test1():
 
     cont = _pt_cvt_tab_to_space(cont)
     cont = _pt_operation(cont)
-    #cont = _pt_comma(cont)
+    cont = _pt_comma(cont)
     #cont = _pt_annotations(cont)
-    print(cont)
+    cont = cont.rstrip()
+    cont = cont.strip()
+    print('ret:', cont)
 
-    print('\n\nDone (%ss)' % (round(time() - st, 3)))
-
+    print('\n\nDone (%ss)\n' % (round(time() - st, 3)))
+    _check_plain_text(cont)
+    print(' ')
 
 
 if __name__ == '__main__':
