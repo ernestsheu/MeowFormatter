@@ -111,8 +111,14 @@ def _ll_string(content, *arg, **kwargs):
     comment_list = [m for m in comment_list if not _within_ignores(m.start(), ignore_list)]
     ignore_list += [(m.start(), last_pos) for m in comment_list]
 
-    for r in ignore_list:
-        _logger.error('%02d-%02d: %s' % (r[0], r[1], content[r[0]:r[1]]))
+    # for case "'#33ccaa', # n/a"
+    if not comment_list and content.count('#') > 1:
+        last_comment_pos = content.rindex('#')
+        if not _within_ignores(last_comment_pos, ignore_list):
+            ignore_list.append((last_comment_pos, last_pos))
+
+    # for r in ignore_list:
+    #    _logger.error('%02d-%02d: %s' % (r[0], r[1], content[r[0]:r[1]]))
 
     return ignore_list
 
@@ -275,9 +281,21 @@ def _ll_whitespace_equal(content, *arg, **kwargs):
         tmp_cont = ret_cont
     return ret_cont
 
+def repl_dict2(m, **kwargs):
+    matched = m.group()
+    rep = m.groups()
+    ignores = kwargs.get('ignores', None)
+    if ignores and any(operator in matched for operator in ignores):
+        return matched
+    #if any(p in rep[0] for p in ['\'', '"']):
+    #    return matched
+    return '{}{} '.format(rep[0], rep[2])
+
 def _ll_whitespace_dict(content, *arg, **kwargs):
-    prog1 = re.compile('\\"(.*)\\"(\s+)?(:)(\s+)?')
-    prog2 = re.compile("\\'(.*)\\'(\s+)?(:)(\s+)?")
+    # prog1 = re.compile('\\"(.*)\\"(\s+)?(:)(\s+)?')
+    # prog2 = re.compile("\\'(.*)\\'(\s+)?(:)(\s+)?")
+    prog1 = re.compile(r"('[^\n'\\]*(?:\\.[^\n'\\]*)*')(\s+)?(:)(\s+)?")
+    prog2 = re.compile(r'("[^\n"\\]*(?:\\.[^\n"\\]*)*")(\s+)?(:)(\s+)?')
 
     tmp_cont = content
     ignores = tuple('\n')
@@ -290,7 +308,7 @@ def _ll_whitespace_dict(content, *arg, **kwargs):
     tmp_list = m_list
     m_list = []
     for m in tmp_list:
-        pos = m[0].start() + 2
+        pos = m[0].start()
         rel = m[0].groups()
         if rel[0]:
             pos += len(rel[0])
@@ -299,12 +317,12 @@ def _ll_whitespace_dict(content, *arg, **kwargs):
         if _within_ignores(pos, ignore_list):
            continue
         m_list.append(m)
-        #_logger.error('%02d-%02d: %s',
-        #                m[0].start(), m[0].end(), m[0].groups())
+        _logger.error('%02d-%02d: %s',
+                        m[0].start(), m[0].end(), m[0].groups())
 
     ret_cont = tmp_cont
     for m in m_list:
-        keys = repl_dict(m[0], ignores = m[1])
+        keys = repl_dict2(m[0], ignores = m[1])
         if keys == m[0].group():
             continue
         ret_cont = ret_cont[:m[0].start()] + keys + ret_cont[m[0].end():]
@@ -948,6 +966,8 @@ x<<113 x|2223
     x=x<<3
 assa """
 '#33ccaa',  # n/a
+'#33ccaa','#33ccaa','#33ccaa',  # n/a
+dictt = {'abd':111,'add':"asdf","der":-125}
 '''
     return cont
 
@@ -1138,11 +1158,11 @@ dic = {
     'std_order30': 123,
     'std_order40': "abcd",
     'std_order50': 'adef'
-    'std_order1': -1,
-    'std_order2': -1,
-    'std_order3': 123,
-    'std_order4': "abcd",
-    'std_order5': 'adef'
+    "std_order1": -1,
+    "std_order2": -1,
+    "std_order3": 123,
+    "std_order4": "abcd",
+    "std_order5": 'adef'
 }
 12 + 23
 12 + -23
@@ -1186,7 +1206,7 @@ if node.config.pub_cfg_apply:
 
 if x == 'FP':
     pass
-if x == 'FP':
+if x == "FP":
     pass
 (',', ':')
 
@@ -1210,6 +1230,8 @@ x<<113 x|2223
     x=x<<3
 assa """
 '#33ccaa',  # n/a
+'#33ccaa', '#33ccaa', '#33ccaa',  # n/a
+dictt = {'abd': 111, 'add': "asdf", "der": -125}
 '''
 
     if answer.rstrip() == content:
