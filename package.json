@@ -2,13 +2,13 @@
     "name": "MeowCodeFormatter",
     "displayName": "Meow PEP",
     "description": "Linting support for python files using `MeowCodeFormatter`.",
-    "version": "2024.7.1",
+    "version": "2024.7.2",
     "preview": true,
     "serverInfo": {
         "name": "Meow PEP",
         "module": "MeowCodeFormatter"
     },
-    "publisher": "066f1f66-719e-67c6-918a-c531a9b9d6c8",
+    "publisher": "Meowkaer",
     "license": "MIT",
     "homepage": "https://github.com/ernestsheu/MeowFormatter",
     "repository": {

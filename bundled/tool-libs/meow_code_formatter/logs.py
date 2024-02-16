@@ -12,7 +12,7 @@ log_level = INFO
 console = StreamHandler(stream = sys.stderr)
 console.setLevel(log_level)
 formatter = Formatter(DEF_CONSOLE_FORMAT)
-console.setFormatter(formatter) 
+console.setFormatter(formatter)
 
 # basic
 basicConfig(
