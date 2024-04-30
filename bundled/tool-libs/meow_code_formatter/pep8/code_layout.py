@@ -15,7 +15,7 @@ Already implemented
     - Annotation
 
 Special Cases: (Custom rules)
-  - Special: Check the keyword "#-#--" and fix its length
+  - Special: Check the keyword "#-#--" and fix its length-----------------------
 
 '''
 import re
@@ -24,7 +24,6 @@ import logging
 import tokenize
 
 _logger = logging.getLogger('code_layout')
-
 
 # ref: https://www.w3schools.com/python/python_operators.asp
 # Arithmetic Operators
@@ -68,19 +67,18 @@ def _within_ignores(pos, ignore_list):
             return True
     return False
 
-
 def _ll_c1(lines, *args, **kwargs):
     new_lines = []
     blank_count = 0
 
     # Remove line-end whitespace
     # Remove more blank lines
-    # Special: Check the keyword "#-#--" and fix its length
+    # Special: Check the keyword "#-#--" and fix its length---------------------
     # Convert tabs to spaces
     for ll in lines:
         ll = ll.rstrip()
         ll = re.sub("\t", "    ", ll)
-        if '#-#--' in ll:
+        if '#-#--' in ll:-------------------------------------------------------
             while len(ll) > 80: ll = ll[:-1]
             while len(ll) < 80: ll += '-'
         if not ll:
@@ -193,7 +191,6 @@ def _ll_operator(content, *arg, **kwargs):
 
     return ret_cont
 
-
 def repl_comma2(m, *arg, **kwargs):
     rep = m.groups()
 
@@ -243,8 +240,8 @@ def _ll_whitespace_comma(content, *arg, **kwargs):
             break
         tmp_cont = ret_cont
 
-    ret_cont = ret_cont.replace(', )', ',)')
-    ret_cont = ret_cont.replace(', ]', ',]')
+    ret_cont = ret_cont.replace(',)', ',)')
+    ret_cont = ret_cont.replace(',]', ',]')
 
     return ret_cont
 
@@ -347,7 +344,6 @@ def _ll_c2(lines, *args, **kwargs):
         new_lines.append(ll)
 
     return new_lines
-
 
 def _pt_cvt_tab_to_space(content, *args, **kwargs):
     return re.sub("\t", "    ", content)
@@ -502,7 +498,6 @@ def _pt_operation(content, *args, **kwargs):
 
     return ret_cont
 
-
 def repl_comma(m, **kwargs):
     rep = m.groups()
 
@@ -554,10 +549,9 @@ def _pt_whitespace_comma(content, *args, **kwargs):
             break
 
         tmp_cont = ret_cont
-    ret_cont = ret_cont.replace(', )', ',)')
-    ret_cont = ret_cont.replace(', ]', ',]')
+    ret_cont = ret_cont.replace(',)', ',)')
+    ret_cont = ret_cont.replace(',]', ',]')
     return ret_cont
-
 
 def repl_equal(m, **kwargs):
     matched = m.group()
@@ -608,7 +602,6 @@ def _pt_whitespace_equal(content, *args, **kwargs):
 
         tmp_cont = ret_cont
     return ret_cont
-
 
 def repl_dict(m, **kwargs):
     matched = m.group()
@@ -796,7 +789,7 @@ text = \'\'\' x<<3 x|3
     \'\'\'
 
 #this is annotations
-#-#-- this is annotations --------
+#-#-- this is annotations ------------------------------------------------------
 output_path= os.path.dirname(output_file)
 metadata =None
 x = x + 10 - 15
@@ -823,10 +816,10 @@ if x<5 and x<10:
     dd=x>>2
 
 if not(x < 5 and x < 10):
-	x+=10
-	x-=10
-	x*=10
-	x/=10
+    x+=10
+    x-=10
+    x*=10
+    x/=10
 
 y=x==y
 y=x<y
@@ -950,24 +943,78 @@ _ROS_INIT = '#ff0d0d'
 _ROS_RUNNING = '#33ffff'
 _ROS_CLOSED = '#7f7f7f'
 x = 'abd' + 'fdsf' + """sfsf
-x<<113 x|2223
-    prog1=re.compile('#(\S)')
-    prog1=re.compile('(\s)?(\s+)?(,)(\S)?')
+x << 113 x | 2223
+    prog1 = re.compile('#(\S)')
+    prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
     However, in a slice the colon acts like a binary operator,
     and should have equal amounts on either side
     (treating it as the operator with the lowest priority).
     In an extended slice, both colons must have the same amount of spacing applied.
     Exception: when a slice parameter is omitted, the space is omitted:
 
-    x=x&3
-    x=x|3
-    x=x^3
-    x=x>>3
-    x=x<<3
+    x = x & 3
+    x = x | 3
+    x = x ^ 3
+    x = x >> 3
+    x = x << 3
 assa """
 '#33ccaa',  # n/a
 '#33ccaa','#33ccaa','#33ccaa',  # n/a
 dictt = {'abd':111,'add':"asdf","der":-125}
+
+#-#-- for type hint ------------------------------------------------------------
+# https://ithelp.ithome.com.tw/m/articles/10338998
+def get_str(s: int) -> str:
+    return f"this is {s}"
+
+# 3.9 after
+def test(x: list[int]):
+    pass
+
+word_json: dict[str, int] = {
+    "a": 1,
+    "b": 2
+}
+
+# 3.9 before
+from typing import List, Dict
+
+def test(x: List[int]):
+    pass
+
+word_json: Dict[str, int] = {
+    "a": 1,
+    "b": 2
+}
+
+# 3.10 after
+T = str | int
+def concat(a: T, b: T) -> T:
+    return a + b
+
+
+# 3.10 before
+from typing import Union
+T = Union[str, int]
+def concat(a: T, b: T) -> T:
+    return a + b
+
+
+# for class
+class Student(object):
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+def student_to_string(s: Student) -> str:
+    return f"student name: {s.name}, age: {s.age}."
+
+student_to_string(Student("Tim", 18))
+
+from typing import NewType
+UserId = NewType('UserId', int)
+ProUserId = NewType('ProUserId', UserId)
+
 '''
     return cont
 
@@ -1214,24 +1261,77 @@ _ROS_INIT = '#ff0d0d'
 _ROS_RUNNING = '#33ffff'
 _ROS_CLOSED = '#7f7f7f'
 x = 'abd' + 'fdsf' + """sfsf
-x<<113 x|2223
-    prog1=re.compile('#(\S)')
-    prog1=re.compile('(\s)?(\s+)?(,)(\S)?')
+x << 113 x | 2223
+    prog1 = re.compile('#(\S)')
+    prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
     However, in a slice the colon acts like a binary operator,
     and should have equal amounts on either side
     (treating it as the operator with the lowest priority).
     In an extended slice, both colons must have the same amount of spacing applied.
     Exception: when a slice parameter is omitted, the space is omitted:
 
-    x=x&3
-    x=x|3
-    x=x^3
-    x=x>>3
-    x=x<<3
+    x = x & 3
+    x = x | 3
+    x = x ^ 3
+    x = x >> 3
+    x = x << 3
 assa """
 '#33ccaa',  # n/a
 '#33ccaa', '#33ccaa', '#33ccaa',  # n/a
 dictt = {'abd': 111, 'add': "asdf", "der": -125}
+
+#-#-- for type hint ------------------------------------------------------------
+# https://ithelp.ithome.com.tw/m/articles/10338998
+def get_str(s: int) -> str:
+    return f"this is {s}"
+
+# 3.9 after
+def test(x: list[int]):
+    pass
+
+word_json: dict[str, int] = {
+    "a": 1,
+    "b": 2
+}
+
+# 3.9 before
+from typing import List, Dict
+
+def test(x: List[int]):
+    pass
+
+word_json: Dict[str, int] = {
+    "a": 1,
+    "b": 2
+}
+
+# 3.10 after
+T = str | int
+def concat(a: T, b: T) -> T:
+    return a + b
+
+
+# 3.10 before
+from typing import Union
+T = Union[str, int]
+def concat(a: T, b: T) -> T:
+    return a + b
+
+
+# for class
+class Student(object):
+    def __init__(self, name, age):
+        self.name = name
+        self.age = age
+
+def student_to_string(s: Student) -> str:
+    return f"student name: {s.name}, age: {s.age}."
+
+student_to_string(Student("Tim", 18))
+
+from typing import NewType
+UserId = NewType('UserId', int)
+ProUserId = NewType('ProUserId', UserId)
 '''
 
     if answer.rstrip() == content:
