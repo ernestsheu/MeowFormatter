@@ -2,7 +2,7 @@
     "name": "MeowCodeFormatter",
     "displayName": "Meow PEP",
     "description": "Linting support for python files using `MeowCodeFormatter`.",
-    "version": "2024.7.2",
+    "version": "2024.26.1",
     "preview": true,
     "serverInfo": {
         "name": "Meow PEP",

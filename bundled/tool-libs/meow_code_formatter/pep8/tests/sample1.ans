@@ -1,0 +1,314 @@
+import builtins
+import cv2
+import gc
+import json
+import logging
+import os
+import copy
+import numpy as np
+import PIL.Image, PIL.ImageTk, PIL.ImageDraw, PIL.ImageFont
+import platform
+
+from binascii import b2a_hex
+from datetime import datetime
+from time import time, sleep
+
+import tkinter as tk
+import tkinter.ttk as ttk
+import tkinter.font as tkFont
+from tkinter import messagebox, filedialog
+
+from .node_cfg \
+    import switch_theme as tk_node_cfg_theme \
+        , NodeConfigurationDialog
+from .pref_pages \
+    import switch_theme as tk_pref_pages_theme \
+        , PreferencePages
+from .repair_pages \
+    import switch_theme as tk_repair_pages_theme \
+        , RepairPages
+from .theme_mgr import ThemeManager
+from .unittest import UnitTest
+
+from ...utils.proc import force_kill_process, kill_all_child_process
+from ...locale  \
+    import init as load_language    \
+        , get_supported_languages_with_name \
+        , _DEF_LOCALE as DEF_LOCALE \
+        , _key
+
+from ...utils.web.messenger \
+    import line_notify      \
+        , google_chat       \
+        , MSG_ENG           \
+        , MSG_CUSTOMER_AREA \
+        , MSG_CUSTOMER      \
+        , MSG_ENG_SPECIFIC  \
+        , MSG_ENG_ATTEN
+
+from ...versions import __version__, __prog_name__, __copyright__
+
+_TITLE = \
+    '{title} {version} {comment}'.format(
+        version = __version__,
+        title = __prog_name__,
+        comment = ''
+        )
+
+filename = os.path.basename(output_file)
+output_path = os.path.dirname(output_file)
+metadata = None
+with GoogleDrive(cred_file = cred_file, channel = channel) as gldrv:
+output_path = os.path.dirname(output_file)
+metadata = None
+
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
+abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
+
+text = ''' x<<3 x|3
+    prog1=re.compile('#(\S)')
+    prog1=re.compile('(\s)?(\s+)?(,)(\S)?')
+    However, in a slice the colon acts like a binary operator,
+    and should have equal amounts on either side
+    (treating it as the operator with the lowest priority).
+    In an extended slice, both colons must have the same amount of spacing applied.
+    Exception: when a slice parameter is omitted, the space is omitted:
+
+    x=x&3
+    x=x|3
+    x=x^3
+    x=x>>3
+    x=x<<3
+    '''
+
+# this is annotations
+#-#-- this is annotations ------------------------------------------------------
+output_path = os.path.dirname(output_file)
+metadata = None
+x = x + 10 - 15
+x = x + 10 - 15
+y = x - 1 - 1
+i = i + 1
+submitted += 1
+x = x * 2 - 1
+hypot2 = x * x + y * y
+c = (a + b) * (a - b)
+c = (a + b) * \
+     (a - b)
+c = (a + b) \
+    * (a - b)
+
+if not(x < 5 or x < 10):
+    aa = x & c
+    aa = x | y
+if x < 5 or x < 10:
+    bb = x ^ y
+    bb = ~x
+if x < 5 and x < 10:
+    cc = x << 2
+    dd = x >> 2
+
+if not(x < 5 and x < 10):
+    x += 10
+    x -= 10
+    x *= 10
+    x /= 10
+
+y = x == y
+y = x < y
+y = x > y
+y = x != y
+y = x <> y
+y = x <= y
+y = x >= y
+
+x = 5
+x = x + 3 # aaaaa
+x = x - 3     # cccc
+x = x * 3   # ssdffs
+x = x / 3
+x = x%3
+x = x // 3
+x = x ** 3
+x = x & 3
+x = x | 3
+x = x ^ 3
+x = x >> 3
+x = x << 3
+
+x = 'x|3'
+x = 'x^3'
+x = 'x>>3'
+x = 'x<<3'
+
+x = "x|3"
+x = "x^3"
+x = "x>>3"
+x = "x<<3"
+
+x = "x|3"
+x = "x^3"
+x = "x>>3"
+x = ''' x<<3 prog1=re.compile('#(\S)') x**=3'''
+
+x = 5
+x += 3
+x -= 3
+x *= 3
+x /= 3
+x %= 3
+x //= 3
+x **= 3
+x &= 3
+x |= 3
+x ^= 3
+x >>= 3
+x <<= 3
+
+prog1 = re.compile('#(\S)')
+prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
+
+anno_list += [(tmp_list[idx][0], tmp_list[idx + 1][1]) for idx in range(0, len(tmp_list), 2)]
+
+x = -123
+x = -53
+dic = {
+    'std_order': -1,
+    'std_num': -1,
+    'std_order10': -1,
+    'std_order20': -1,
+    'std_order30': 123,
+    'std_order40': "abcd",
+    'std_order50': 'adef'
+    "std_order1": -1,
+    "std_order2": -1,
+    "std_order3": 123,
+    "std_order4": "abcd",
+    "std_order5": 'adef'
+}
+12 + 23
+12 + -23
+12 + (-23)
+12 + (-23)
+(12) + (-23)
+12 += -23
+12 -= (-23)
+-123
+-12 - 33
+12 * 56
+-12 - 123
+-12 + -123
+-12 -= -123
+-12 += -123
+
+i = i + 1
+submitted += 1
+x = x * 2 - 1
+hypot2 = x * x + y * y
+c = (a + b) * (a - b)
+foo(bar, key = 'word', *args, **kwargs)
+alpha[:-i]
+[a, b]
+(3,)
+a[3,] = 1
+a[1:4]
+a[:4]
+a[1:]
+a[1:4:2]
+
+_logger.info('wid_values: %s', wid_values)
+node = self.__nodes[node_name]
+store_params = self.widgets_apply(node, node.config.components, wid_values)
+_logger.info('params: %s', store_params)
+
+# $%test1 askdfjf
+# test1 askdfjf
+if node.config.pub_cfg_apply:
+    # test1 askdfjf
+    node_config = NodeConfig()
+    node_config.json_data = json.dumps(wid_values, indent = 4, separators = (',', ':'))
+    node.config.pub_cfg_apply.publish(node_config)
+    if node_config.json_data is not None:
+        # test comment
+        pass
+# test1 askdfjf
+# test1 askdfjf
+# test1 askdfjf
+Apple # kdsksl#--
+Apple# skdfks#-##
+
+if x == 'FP':
+    pass
+if x == "FP":
+    pass
+(',', ':')
+
+_ROS_INIT = '#ff0d0d'
+_ROS_RUNNING = '#33ffff'
+_ROS_CLOSED = '#7f7f7f'
+x = 'abd' + 'fdsf' + """sfsf
+x<<113 x|2223
+    prog1=re.compile('#(\S)')
+    prog1=re.compile('(\s)?(\s+)?(,)(\S)?')
+    However, in a slice the colon acts like a binary operator,
+    and should have equal amounts on either side
+    (treating it as the operator with the lowest priority).
+    In an extended slice, both colons must have the same amount of spacing applied.
+    Exception: when a slice parameter is omitted, the space is omitted:
+
+    x=x&3
+    x=x|3
+    x=x^3
+    x=x>>3
+    x=x<<3
+assa """
+'#33ccaa',  # n/a
+'#33ccaa', '#33ccaa', '#33ccaa',  # n/a
+dictt = {'abd': 111, 'add': "asdf", "der": -125}
+
+def surface_area_of_cube(edge_length: float) -> str:
+    return f"The surface area of the cube is {6 * edge_length ** 2}."
+
+def feeder(get_next_item: Callable[[], str]) -> None:
+    ...  # Body
+
+def async_query(on_success: Callable[[int], None],
+                on_error: Callable[[int, Exception], None]) -> None:
+    ...  # Body
+
+async def on_update(value: str) -> None:
+    ...  # Body
+
+callback: Callable[[str], Awaitable[None]] = on_update
+
+class Combiner(Protocol):
+    def __call__(self, *vals: bytes, maxlen: int | None = None) -> list[bytes]: ...
+
+def batch_proc(data: Iterable[bytes], cb_results: Combiner) -> bytes:
+    for item in data:
+        ...
+
+def good_cb(*vals: bytes, maxlen: int | None = None) -> list[bytes]:
+    ...
+def bad_cb(*vals: bytes, maxitems: int | None) -> list[bytes]:
+    ...
+def echo_round() -> Generator[int, float, str]:
+    sent = yield 0
+    while sent >= 0:
+        sent = yield round(sent)
+    return 'Done'
+
+def infinite_stream(start: int) -> Generator[int, None, None]:
+    while True:
+        yield start
+        start += 1
+
+def infinite_stream(start: int) -> Iterator[int]:
+    while True:
+        yield start
+        start += 1
+

@@ -15,15 +15,23 @@ Already implemented
     - Annotation
 
 Special Cases: (Custom rules)
-  - Special: Check the keyword "#-#--" and fix its length-----------------------
+  - Special: Check the keyword "#-#--" and fix its length
+  
+  
+Python typing
+https://docs.python.org/3/library/typing.html  
 
 '''
+import os
 import re
 import sys
 import logging
 import tokenize
 
+from time import time
+    
 _logger = logging.getLogger('code_layout')
+
 
 # ref: https://www.w3schools.com/python/python_operators.asp
 # Arithmetic Operators
@@ -60,6 +68,7 @@ _2L_IGNORES = tuple(list(_3L_OPERATOR_SIGN) + [])
 _RE_STRING = re.compile(tokenize.String)
 _RE_STR_TRIPLE = re.compile(tokenize.Triple)
 _RE_COMMENT = re.compile('(\'|")?' + tokenize.Comment)
+_RE_TYPING_RETURN = re.compile('->')
 
 def _within_ignores(pos, ignore_list):
     for anno in ignore_list:
@@ -67,18 +76,19 @@ def _within_ignores(pos, ignore_list):
             return True
     return False
 
+
 def _ll_c1(lines, *args, **kwargs):
     new_lines = []
     blank_count = 0
 
     # Remove line-end whitespace
     # Remove more blank lines
-    # Special: Check the keyword "#-#--" and fix its length---------------------
+    # Special: Check the keyword "#-#--" and fix its length
     # Convert tabs to spaces
     for ll in lines:
         ll = ll.rstrip()
         ll = re.sub("\t", "    ", ll)
-        if '#-#--' in ll:-------------------------------------------------------
+        if '#-#--' in ll:
             while len(ll) > 80: ll = ll[:-1]
             while len(ll) < 80: ll += '-'
         if not ll:
@@ -91,9 +101,11 @@ def _ll_c1(lines, *args, **kwargs):
 
     return new_lines
 
-def _ll_string(content, *arg, **kwargs):
+def _ll_string(content, ignore_comment = False, *arg, **kwargs):
     docstr_list = [m for m in _RE_STR_TRIPLE.finditer(content)]
     string_list = [m for m in _RE_STRING.finditer(content)]
+    typing_list = [m for m in _RE_TYPING_RETURN.finditer(content)]
+    
     last_pos = len(content)
     ignore_list = []
     if docstr_list:
@@ -105,11 +117,17 @@ def _ll_string(content, *arg, **kwargs):
     if string_list:
         ignore_list += [(m.start(), m.end()) for m in string_list]
 
+    if typing_list:
+        ignore_list += [(m.start(), m.end()) for m in typing_list]
+
+
+    if ignore_comment:
+        return ignore_list
+    
     comment_list = [m for m in _RE_COMMENT.finditer(content)]
     comment_list = [m for m in comment_list if not _within_ignores(m.start(), ignore_list)]
     ignore_list += [(m.start(), last_pos) for m in comment_list]
 
-    # for case "'#33ccaa', # n/a"
     if not comment_list and content.count('#') > 1:
         last_comment_pos = content.rindex('#')
         if not _within_ignores(last_comment_pos, ignore_list):
@@ -191,6 +209,7 @@ def _ll_operator(content, *arg, **kwargs):
 
     return ret_cont
 
+
 def repl_comma2(m, *arg, **kwargs):
     rep = m.groups()
 
@@ -240,8 +259,8 @@ def _ll_whitespace_comma(content, *arg, **kwargs):
             break
         tmp_cont = ret_cont
 
-    ret_cont = ret_cont.replace(',)', ',)')
-    ret_cont = ret_cont.replace(',]', ',]')
+    ret_cont = ret_cont.replace(', )', ',)')
+    ret_cont = ret_cont.replace(', ]', ',]')
 
     return ret_cont
 
@@ -314,8 +333,8 @@ def _ll_whitespace_dict(content, *arg, **kwargs):
         if _within_ignores(pos, ignore_list):
            continue
         m_list.append(m)
-        _logger.error('%02d-%02d: %s',
-                        m[0].start(), m[0].end(), m[0].groups())
+        #_logger.error('%02d-%02d: %s',
+        #                m[0].start(), m[0].end(), m[0].groups())
 
     ret_cont = tmp_cont
     for m in m_list:
@@ -327,6 +346,29 @@ def _ll_whitespace_dict(content, *arg, **kwargs):
         tmp_cont = ret_cont
     return ret_cont
 
+
+def _ll_whitespace_comment(content, *arg, **kwargs):
+    if '#-#--' in content:
+        return content
+
+    prog = re.compile(r"([ ]*)?(#)([ ]*)?")
+
+    tmp_cont = content
+    ignore_list = _ll_string(tmp_cont, ignore_comment = True)
+    
+    m = prog.search(content)
+    if m is None:
+        return content
+    
+    pos = m.start() 
+    if _within_ignores(pos, ignore_list):
+        return content
+    old_str = m.group()
+    new_str = ''.join(m.groups()[:2]) + ' '
+    content = content.replace(old_str, new_str, 1)    
+
+    return content
+
 def _ll_c2(lines, *args, **kwargs):
     new_lines = []
 
@@ -337,6 +379,7 @@ def _ll_c2(lines, *args, **kwargs):
             ll = _ll_operator(ll)
             ll = _ll_whitespace_equal(ll)
             ll = _ll_whitespace_dict(ll)
+            ll = _ll_whitespace_comment(ll)
         docstr_list = [m for m in _RE_STR_TRIPLE.finditer(ll)]
         if len(docstr_list) == 1:
             docstring = not docstring
@@ -344,6 +387,7 @@ def _ll_c2(lines, *args, **kwargs):
         new_lines.append(ll)
 
     return new_lines
+
 
 def _pt_cvt_tab_to_space(content, *args, **kwargs):
     return re.sub("\t", "    ", content)
@@ -498,6 +542,7 @@ def _pt_operation(content, *args, **kwargs):
 
     return ret_cont
 
+
 def repl_comma(m, **kwargs):
     rep = m.groups()
 
@@ -549,9 +594,10 @@ def _pt_whitespace_comma(content, *args, **kwargs):
             break
 
         tmp_cont = ret_cont
-    ret_cont = ret_cont.replace(',)', ',)')
-    ret_cont = ret_cont.replace(',]', ',]')
+    ret_cont = ret_cont.replace(', )', ',)')
+    ret_cont = ret_cont.replace(', ]', ',]')
     return ret_cont
+
 
 def repl_equal(m, **kwargs):
     matched = m.group()
@@ -602,6 +648,7 @@ def _pt_whitespace_equal(content, *args, **kwargs):
 
         tmp_cont = ret_cont
     return ret_cont
+
 
 def repl_dict(m, **kwargs):
     matched = m.group()
@@ -699,640 +746,7 @@ format_for_plain_text = [
     #_pt_annotations
     ]
 
-def _test_plain_text():
-    cont = '''
-import builtins
-import cv2
-import gc
-import json
-import logging
-import os
-import copy
-import numpy as np
-import PIL.Image, PIL.ImageTk, PIL.ImageDraw, PIL.ImageFont
-import platform
-
-from binascii import b2a_hex
-from datetime import datetime
-from time import time, sleep
-
-import tkinter as tk
-import tkinter.ttk as ttk
-import tkinter.font as tkFont
-from tkinter import messagebox, filedialog
-
-from .node_cfg \\
-    import switch_theme as tk_node_cfg_theme \\
-        , NodeConfigurationDialog
-from .pref_pages \\
-    import switch_theme as tk_pref_pages_theme \\
-        , PreferencePages
-from .repair_pages \\
-    import switch_theme as tk_repair_pages_theme \\
-        , RepairPages
-from .theme_mgr import ThemeManager
-from .unittest import UnitTest
-
-from ...utils.proc import force_kill_process, kill_all_child_process
-from ...locale  \\
-    import init as load_language    \\
-        , get_supported_languages_with_name \\
-        , _DEF_LOCALE as DEF_LOCALE \\
-        , _key
-
-from ...utils.web.messenger \\
-    import line_notify      \\
-        , google_chat       \\
-        ,MSG_ENG           \\
-        , MSG_CUSTOMER_AREA \\
-        , MSG_CUSTOMER      \\
-        ,MSG_ENG_SPECIFIC  \\
-        , MSG_ENG_ATTEN
-
-from ...versions import __version__, __prog_name__, __copyright__
-
-_TITLE = \\
-    '{title} {version} {comment}'.format(
-        version = __version__,
-        title = __prog_name__,
-        comment = ''
-        )
-
-filename=os.path.basename(output_file)
-output_path=os.path.dirname(output_file)
-metadata=None
-with GoogleDrive(cred_file=cred_file,channel=channel) as gldrv:
-output_path = os.path.dirname(output_file)
-metadata = None
-
-abc=func(aa,bbb,cc=['abc', 'ccc'], dd=(1, ), ff=12354)
-abc=func(aa,bbb,cc=['abc','ccc'],dd=(1,),ff=12354)
-abc=func(aa,bbb,cc=['abc','ccc'] ,dd=(1,) ,ff=12354)
-abc=func(aa,bbb,cc=['abc','ccc'] , dd=(1,) , ff=12354)
-abc=func(aa,bbb,cc=['abc','ccc']  , dd=(1,) , ff=12354)
-abc=func(aa,bbb,cc=['abc','ccc']  ,dd=(1,) ,ff=12354)
-
-text = \'\'\' x<<3 x|3
-    prog1=re.compile('#(\S)')
-    prog1=re.compile('(\s)?(\s+)?(,)(\S)?')
-    However, in a slice the colon acts like a binary operator,
-    and should have equal amounts on either side
-    (treating it as the operator with the lowest priority).
-    In an extended slice, both colons must have the same amount of spacing applied.
-    Exception: when a slice parameter is omitted, the space is omitted:
-
-    x=x&3
-    x=x|3
-    x=x^3
-    x=x>>3
-    x=x<<3
-    \'\'\'
-
-#this is annotations
-#-#-- this is annotations ------------------------------------------------------
-output_path= os.path.dirname(output_file)
-metadata =None
-x = x + 10 - 15
-x=x+10-15
-y=x-1-1
-i=i+1
-submitted +=1
-x=x*2-1
-hypot2=x*x+y*y
-c=(a+b)*(a-b)
-c=(a+b)* \\
-     (a-b)
-c=(a+b) \\
-    * (a-b)
-
-if not(x<5 or x<10):
-    aa=x&c
-    aa=x|y
-if x<5 or x<10:
-    bb=x^y
-    bb=~x
-if x<5 and x<10:
-    cc=x<<2
-    dd=x>>2
-
-if not(x < 5 and x < 10):
-    x+=10
-    x-=10
-    x*=10
-    x/=10
-
-y=x==y
-y=x<y
-y=x>y
-y=x!=y
-y=x<>y
-y=x<=y
-y=x>=y
-
-x=5
-x=x+3 # aaaaa
-x=x-3     # cccc
-x=x*3   # ssdffs
-x=x/3
-x=x%3
-x=x//3
-x=x**3
-x=x&3
-x=x|3
-x=x^3
-x=x>>3
-x=x<<3
-
-x='x|3'
-x='x^3'
-x='x>>3'
-x='x<<3'
-
-x="x|3"
-x="x^3"
-x="x>>3"
-x="x<<3"
-
-x="x|3"
-x="x^3"
-x="x>>3"
-x=\'\'\' x<<3 prog1=re.compile('#(\S)') x**=3\'\'\'
-
-x=5
-x+=3
-x-=3
-x*=3
-x/=3
-x%=3
-x//=3
-x**=3
-x&=3
-x|=3
-x^=3
-x>>=3
-x<<=3
-
-prog1 = re.compile('#(\S)')
-prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
-
-anno_list += [(tmp_list[idx][0], tmp_list[idx + 1][1]) for idx in range(0, len(tmp_list), 2)]
-
-x=-123
-x = -53
-dic = {
-    'std_order':-1,
-    'std_num':-1,
-    'std_order10'  :   -1,
-    'std_order20':-1,
-    'std_order30':123,
-    'std_order40':"abcd",
-    'std_order50':'adef'
-    "std_order1"  :   -1,
-    "std_order2":-1,
-    "std_order3":123,
-    "std_order4":"abcd",
-    "std_order5":'adef'
-}
-12+23
-12 + -23
-12 + (-23)
-12 +(-23)
-(12)+(-23)
-12 += -23
-12 -=(-23)
--123
--12-33
-12*56
--12 - 123
--12 + -123
--12 -= -123
--12 += -123
-
-i=i+1
-submitted += 1
-x=x*2-1
-hypot2 = x*x+y*y
-c=(a+b)*(a-b)
-foo(bar,key='word',*args,**kwargs)
-alpha[:-i]
-[a,b]
-(3,)
-a[3,] = 1
-a[1:4]
-a[:4]
-a[1:]
-a[1:4:2]
-
-_logger.info('wid_values: %s', wid_values)
-node = self.__nodes[node_name]
-store_params = self.widgets_apply(node, node.config.components, wid_values)
-_logger.info('params: %s', store_params)
-
-if node.config.pub_cfg_apply:
-    node_config = NodeConfig()
-    node_config.json_data = json.dumps(wid_values, indent = 4, separators = (',', ':'))
-    node.config.pub_cfg_apply.publish(node_config)
-
-if x == 'FP':
-    pass
-if x == "FP":
-    pass
-(',', ':')
-
-_ROS_INIT = '#ff0d0d'
-_ROS_RUNNING = '#33ffff'
-_ROS_CLOSED = '#7f7f7f'
-x = 'abd' + 'fdsf' + """sfsf
-x << 113 x | 2223
-    prog1 = re.compile('#(\S)')
-    prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
-    However, in a slice the colon acts like a binary operator,
-    and should have equal amounts on either side
-    (treating it as the operator with the lowest priority).
-    In an extended slice, both colons must have the same amount of spacing applied.
-    Exception: when a slice parameter is omitted, the space is omitted:
-
-    x = x & 3
-    x = x | 3
-    x = x ^ 3
-    x = x >> 3
-    x = x << 3
-assa """
-'#33ccaa',  # n/a
-'#33ccaa','#33ccaa','#33ccaa',  # n/a
-dictt = {'abd':111,'add':"asdf","der":-125}
-
-#-#-- for type hint ------------------------------------------------------------
-# https://ithelp.ithome.com.tw/m/articles/10338998
-def get_str(s: int) -> str:
-    return f"this is {s}"
-
-# 3.9 after
-def test(x: list[int]):
-    pass
-
-word_json: dict[str, int] = {
-    "a": 1,
-    "b": 2
-}
-
-# 3.9 before
-from typing import List, Dict
-
-def test(x: List[int]):
-    pass
-
-word_json: Dict[str, int] = {
-    "a": 1,
-    "b": 2
-}
-
-# 3.10 after
-T = str | int
-def concat(a: T, b: T) -> T:
-    return a + b
-
-
-# 3.10 before
-from typing import Union
-T = Union[str, int]
-def concat(a: T, b: T) -> T:
-    return a + b
-
-
-# for class
-class Student(object):
-    def __init__(self, name, age):
-        self.name = name
-        self.age = age
-
-def student_to_string(s: Student) -> str:
-    return f"student name: {s.name}, age: {s.age}."
-
-student_to_string(Student("Tim", 18))
-
-from typing import NewType
-UserId = NewType('UserId', int)
-ProUserId = NewType('ProUserId', UserId)
-
-'''
-    return cont
-
-def _check_plain_text(content):
-    answer = '''import builtins
-import cv2
-import gc
-import json
-import logging
-import os
-import copy
-import numpy as np
-import PIL.Image, PIL.ImageTk, PIL.ImageDraw, PIL.ImageFont
-import platform
-
-from binascii import b2a_hex
-from datetime import datetime
-from time import time, sleep
-
-import tkinter as tk
-import tkinter.ttk as ttk
-import tkinter.font as tkFont
-from tkinter import messagebox, filedialog
-
-from .node_cfg \\
-    import switch_theme as tk_node_cfg_theme \\
-        , NodeConfigurationDialog
-from .pref_pages \\
-    import switch_theme as tk_pref_pages_theme \\
-        , PreferencePages
-from .repair_pages \\
-    import switch_theme as tk_repair_pages_theme \\
-        , RepairPages
-from .theme_mgr import ThemeManager
-from .unittest import UnitTest
-
-from ...utils.proc import force_kill_process, kill_all_child_process
-from ...locale  \\
-    import init as load_language    \\
-        , get_supported_languages_with_name \\
-        , _DEF_LOCALE as DEF_LOCALE \\
-        , _key
-
-from ...utils.web.messenger \\
-    import line_notify      \\
-        , google_chat       \\
-        , MSG_ENG           \\
-        , MSG_CUSTOMER_AREA \\
-        , MSG_CUSTOMER      \\
-        , MSG_ENG_SPECIFIC  \\
-        , MSG_ENG_ATTEN
-
-from ...versions import __version__, __prog_name__, __copyright__
-
-_TITLE = \\
-    '{title} {version} {comment}'.format(
-        version = __version__,
-        title = __prog_name__,
-        comment = ''
-        )
-
-filename = os.path.basename(output_file)
-output_path = os.path.dirname(output_file)
-metadata = None
-with GoogleDrive(cred_file = cred_file, channel = channel) as gldrv:
-output_path = os.path.dirname(output_file)
-metadata = None
-
-abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
-abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
-abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
-abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
-abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
-abc = func(aa, bbb, cc = ['abc', 'ccc'], dd = (1,), ff = 12354)
-
-text = \'\'\' x<<3 x|3
-    prog1=re.compile('#(\S)')
-    prog1=re.compile('(\s)?(\s+)?(,)(\S)?')
-    However, in a slice the colon acts like a binary operator,
-    and should have equal amounts on either side
-    (treating it as the operator with the lowest priority).
-    In an extended slice, both colons must have the same amount of spacing applied.
-    Exception: when a slice parameter is omitted, the space is omitted:
-
-    x=x&3
-    x=x|3
-    x=x^3
-    x=x>>3
-    x=x<<3
-    \'\'\'
-
-#this is annotations
-#-#-- this is annotations ------------------------------------------------------
-output_path = os.path.dirname(output_file)
-metadata = None
-x = x + 10 - 15
-x = x + 10 - 15
-y = x - 1 - 1
-i = i + 1
-submitted += 1
-x = x * 2 - 1
-hypot2 = x * x + y * y
-c = (a + b) * (a - b)
-c = (a + b) * \\
-     (a - b)
-c = (a + b) \\
-    * (a - b)
-
-if not(x < 5 or x < 10):
-    aa = x & c
-    aa = x | y
-if x < 5 or x < 10:
-    bb = x ^ y
-    bb = ~x
-if x < 5 and x < 10:
-    cc = x << 2
-    dd = x >> 2
-
-if not(x < 5 and x < 10):
-    x += 10
-    x -= 10
-    x *= 10
-    x /= 10
-
-y = x == y
-y = x < y
-y = x > y
-y = x != y
-y = x <> y
-y = x <= y
-y = x >= y
-
-x = 5
-x = x + 3 # aaaaa
-x = x - 3     # cccc
-x = x * 3   # ssdffs
-x = x / 3
-x = x%3
-x = x // 3
-x = x ** 3
-x = x & 3
-x = x | 3
-x = x ^ 3
-x = x >> 3
-x = x << 3
-
-x = 'x|3'
-x = 'x^3'
-x = 'x>>3'
-x = 'x<<3'
-
-x = "x|3"
-x = "x^3"
-x = "x>>3"
-x = "x<<3"
-
-x = "x|3"
-x = "x^3"
-x = "x>>3"
-x = \'\'\' x<<3 prog1=re.compile('#(\S)') x**=3\'\'\'
-
-x = 5
-x += 3
-x -= 3
-x *= 3
-x /= 3
-x %= 3
-x //= 3
-x **= 3
-x &= 3
-x |= 3
-x ^= 3
-x >>= 3
-x <<= 3
-
-prog1 = re.compile('#(\S)')
-prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
-
-anno_list += [(tmp_list[idx][0], tmp_list[idx + 1][1]) for idx in range(0, len(tmp_list), 2)]
-
-x = -123
-x = -53
-dic = {
-    'std_order': -1,
-    'std_num': -1,
-    'std_order10': -1,
-    'std_order20': -1,
-    'std_order30': 123,
-    'std_order40': "abcd",
-    'std_order50': 'adef'
-    "std_order1": -1,
-    "std_order2": -1,
-    "std_order3": 123,
-    "std_order4": "abcd",
-    "std_order5": 'adef'
-}
-12 + 23
-12 + -23
-12 + (-23)
-12 + (-23)
-(12) + (-23)
-12 += -23
-12 -= (-23)
--123
--12 - 33
-12 * 56
--12 - 123
--12 + -123
--12 -= -123
--12 += -123
-
-i = i + 1
-submitted += 1
-x = x * 2 - 1
-hypot2 = x * x + y * y
-c = (a + b) * (a - b)
-foo(bar, key = 'word', *args, **kwargs)
-alpha[:-i]
-[a, b]
-(3,)
-a[3,] = 1
-a[1:4]
-a[:4]
-a[1:]
-a[1:4:2]
-
-_logger.info('wid_values: %s', wid_values)
-node = self.__nodes[node_name]
-store_params = self.widgets_apply(node, node.config.components, wid_values)
-_logger.info('params: %s', store_params)
-
-if node.config.pub_cfg_apply:
-    node_config = NodeConfig()
-    node_config.json_data = json.dumps(wid_values, indent = 4, separators = (',', ':'))
-    node.config.pub_cfg_apply.publish(node_config)
-
-if x == 'FP':
-    pass
-if x == "FP":
-    pass
-(',', ':')
-
-_ROS_INIT = '#ff0d0d'
-_ROS_RUNNING = '#33ffff'
-_ROS_CLOSED = '#7f7f7f'
-x = 'abd' + 'fdsf' + """sfsf
-x << 113 x | 2223
-    prog1 = re.compile('#(\S)')
-    prog1 = re.compile('(\s)?(\s+)?(,)(\S)?')
-    However, in a slice the colon acts like a binary operator,
-    and should have equal amounts on either side
-    (treating it as the operator with the lowest priority).
-    In an extended slice, both colons must have the same amount of spacing applied.
-    Exception: when a slice parameter is omitted, the space is omitted:
-
-    x = x & 3
-    x = x | 3
-    x = x ^ 3
-    x = x >> 3
-    x = x << 3
-assa """
-'#33ccaa',  # n/a
-'#33ccaa', '#33ccaa', '#33ccaa',  # n/a
-dictt = {'abd': 111, 'add': "asdf", "der": -125}
-
-#-#-- for type hint ------------------------------------------------------------
-# https://ithelp.ithome.com.tw/m/articles/10338998
-def get_str(s: int) -> str:
-    return f"this is {s}"
-
-# 3.9 after
-def test(x: list[int]):
-    pass
-
-word_json: dict[str, int] = {
-    "a": 1,
-    "b": 2
-}
-
-# 3.9 before
-from typing import List, Dict
-
-def test(x: List[int]):
-    pass
-
-word_json: Dict[str, int] = {
-    "a": 1,
-    "b": 2
-}
-
-# 3.10 after
-T = str | int
-def concat(a: T, b: T) -> T:
-    return a + b
-
-
-# 3.10 before
-from typing import Union
-T = Union[str, int]
-def concat(a: T, b: T) -> T:
-    return a + b
-
-
-# for class
-class Student(object):
-    def __init__(self, name, age):
-        self.name = name
-        self.age = age
-
-def student_to_string(s: Student) -> str:
-    return f"student name: {s.name}, age: {s.age}."
-
-student_to_string(Student("Tim", 18))
-
-from typing import NewType
-UserId = NewType('UserId', int)
-ProUserId = NewType('ProUserId', UserId)
-'''
+def _check_plain_text(content, answer):    
 
     if answer.rstrip() == content:
         print('Same.')
@@ -1359,8 +773,9 @@ ProUserId = NewType('ProUserId', UserId)
         sl = src_lines[idx]
         dl = dst_lines[idx]
         if sl != dl:
-            print('Test   : "%s"' % sl)
-            print('Correct: "%s"' % dl)
+            print(f'Line   : "{idx}"')
+            print(f'Test   : "{sl}"')
+            print(f'Correct: "{dl}"')
             break
     else:
         print('Lines compare all pass')
@@ -1370,35 +785,36 @@ ProUserId = NewType('ProUserId', UserId)
 
     return False
 
+location = os.path.abspath(os.path.dirname(__file__))
+
 def test1():
-    from time import time
-    st = time()
     print('\n\n========================================================\n\n')
-    cont = _test_plain_text()
-    lines = cont.splitlines()
+    input_file = os.path.join(location, 'tests', 'sample1.err')
+    with open(input_file) as fp:
+        lines = fp.readlines()
+    
+    check_file = os.path.join(location, 'tests', 'sample1.ans')
+    with open(check_file) as fp:
+        answers = fp.read()
+        
+    st = time()
     for func in format_for_list:
         lines = func(lines)
-
-    cont = '\n'.join(lines)
-    if False:
-        cont = _pt_cvt_tab_to_space(cont)
-        cont = _pt_whitespace_comma(cont)
-        cont = _pt_operation(cont)
-        cont = _pt_whitespace_equal(cont)
-        cont = _pt_whitespace_dict(cont)
-        #cont = _pt_annotations(cont)
-
-    cont = cont.rstrip()
-    cont = cont.strip()
-    print('ret:', cont)
+        
     print('...')
 
+    cont = '\n'.join(lines)
+    cont = cont.rstrip()
+    cont = cont.strip()
+    # print('ret:', cont)
+    print('...')
     print('\n\nDone (%ss)\n' % (round(time() - st, 3)))
-    _check_plain_text(cont)
+    
+    _check_plain_text(cont, answers)
     print(' ')
-    print('String Pattern: %s' % tokenize.String)
-    print('Triple: %s' % tokenize.Triple)
-    print('Ignore: %s' % tokenize.Ignore)
+    # print('String Pattern: %s' % tokenize.String)
+    # print('Triple: %s' % tokenize.Triple)
+    # print('Ignore: %s' % tokenize.Ignore)
 
 if __name__ == '__main__':
    test1()
