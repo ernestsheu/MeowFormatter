@@ -236,9 +236,10 @@ if node.config.pub_cfg_apply:
         # test comment
         pass
 # test1 askdfjf
-# test1 askdfjf
-# test1 askdfjf
-Apple # kdsksl#--
+#   test1 askdfjf
+#   test1 askdfjf
+#       test1 askdfjf
+Apple #    kdsksl#--
 Apple# skdfks#-##
 
 if x == 'FP':

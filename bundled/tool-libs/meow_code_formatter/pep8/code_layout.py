@@ -1,4 +1,5 @@
 '''
+Key: MeowFormater
 Code Lay-out
 https://peps.python.org/pep-0008/#code-lay-out
 https://peps.python.org/pep-0008/#whitespace-in-expressions-and-statements
@@ -16,10 +17,9 @@ Already implemented
 
 Special Cases: (Custom rules)
   - Special: Check the keyword "#-#--" and fix its length
-  
-  
+
 Python typing
-https://docs.python.org/3/library/typing.html  
+https://docs.python.org/3/library/typing.html
 
 '''
 import os
@@ -29,9 +29,8 @@ import logging
 import tokenize
 
 from time import time
-    
-_logger = logging.getLogger('code_layout')
 
+_logger = logging.getLogger('code_layout')
 
 # ref: https://www.w3schools.com/python/python_operators.asp
 # Arithmetic Operators
@@ -76,7 +75,6 @@ def _within_ignores(pos, ignore_list):
             return True
     return False
 
-
 def _ll_c1(lines, *args, **kwargs):
     new_lines = []
     blank_count = 0
@@ -105,7 +103,7 @@ def _ll_string(content, ignore_comment = False, *arg, **kwargs):
     docstr_list = [m for m in _RE_STR_TRIPLE.finditer(content)]
     string_list = [m for m in _RE_STRING.finditer(content)]
     typing_list = [m for m in _RE_TYPING_RETURN.finditer(content)]
-    
+
     last_pos = len(content)
     ignore_list = []
     if docstr_list:
@@ -120,10 +118,9 @@ def _ll_string(content, ignore_comment = False, *arg, **kwargs):
     if typing_list:
         ignore_list += [(m.start(), m.end()) for m in typing_list]
 
-
     if ignore_comment:
         return ignore_list
-    
+
     comment_list = [m for m in _RE_COMMENT.finditer(content)]
     comment_list = [m for m in comment_list if not _within_ignores(m.start(), ignore_list)]
     ignore_list += [(m.start(), last_pos) for m in comment_list]
@@ -208,7 +205,6 @@ def _ll_operator(content, *arg, **kwargs):
         tmp_cont = ret_cont
 
     return ret_cont
-
 
 def repl_comma2(m, *arg, **kwargs):
     rep = m.groups()
@@ -346,26 +342,25 @@ def _ll_whitespace_dict(content, *arg, **kwargs):
         tmp_cont = ret_cont
     return ret_cont
 
-
 def _ll_whitespace_comment(content, *arg, **kwargs):
     if '#-#--' in content:
         return content
 
-    prog = re.compile(r"([ ]*)?(#)([ ]*)?")
+    prog = re.compile(r"([ ]*)?(#)([ ])?")
 
     tmp_cont = content
     ignore_list = _ll_string(tmp_cont, ignore_comment = True)
-    
+
     m = prog.search(content)
     if m is None:
         return content
-    
-    pos = m.start() 
+
+    pos = m.start()
     if _within_ignores(pos, ignore_list):
         return content
     old_str = m.group()
     new_str = ''.join(m.groups()[:2]) + ' '
-    content = content.replace(old_str, new_str, 1)    
+    content = content.replace(old_str, new_str, 1)
 
     return content
 
@@ -387,7 +382,6 @@ def _ll_c2(lines, *args, **kwargs):
         new_lines.append(ll)
 
     return new_lines
-
 
 def _pt_cvt_tab_to_space(content, *args, **kwargs):
     return re.sub("\t", "    ", content)
@@ -542,7 +536,6 @@ def _pt_operation(content, *args, **kwargs):
 
     return ret_cont
 
-
 def repl_comma(m, **kwargs):
     rep = m.groups()
 
@@ -598,7 +591,6 @@ def _pt_whitespace_comma(content, *args, **kwargs):
     ret_cont = ret_cont.replace(', ]', ',]')
     return ret_cont
 
-
 def repl_equal(m, **kwargs):
     matched = m.group()
     rep = m.groups()
@@ -648,7 +640,6 @@ def _pt_whitespace_equal(content, *args, **kwargs):
 
         tmp_cont = ret_cont
     return ret_cont
-
 
 def repl_dict(m, **kwargs):
     matched = m.group()
@@ -738,15 +729,15 @@ format_for_list = [
     ]
 
 format_for_plain_text = [
-    #_pt_cvt_tab_to_space,
-    #_pt_whitespace_comma,
-    #_pt_operation,
-    #_pt_whitespace_equal,
-    #_pt_whitespace_dict,
-    #_pt_annotations
+    # _pt_cvt_tab_to_space,
+    # _pt_whitespace_comma,
+    # _pt_operation,
+    # _pt_whitespace_equal,
+    # _pt_whitespace_dict,
+    # _pt_annotations
     ]
 
-def _check_plain_text(content, answer):    
+def _check_plain_text(content, answer):
 
     if answer.rstrip() == content:
         print('Same.')
@@ -792,15 +783,15 @@ def test1():
     input_file = os.path.join(location, 'tests', 'sample1.err')
     with open(input_file) as fp:
         lines = fp.readlines()
-    
+
     check_file = os.path.join(location, 'tests', 'sample1.ans')
     with open(check_file) as fp:
         answers = fp.read()
-        
+
     st = time()
     for func in format_for_list:
         lines = func(lines)
-        
+
     print('...')
 
     cont = '\n'.join(lines)
@@ -809,7 +800,7 @@ def test1():
     # print('ret:', cont)
     print('...')
     print('\n\nDone (%ss)\n' % (round(time() - st, 3)))
-    
+
     _check_plain_text(cont, answers)
     print(' ')
     # print('String Pattern: %s' % tokenize.String)
