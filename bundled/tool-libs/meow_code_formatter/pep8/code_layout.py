@@ -50,7 +50,7 @@ _1L_OPERATOR_SIGN = ('/', '>', '<', '&', '|', '^')
 
 # 2 letters, skip '**'
 _2L_OPERATOR_SIGN = (
-    '//', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=',
+    '//', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '@=',
     '==', '!=', '<>', '<=', '>=', '<<', '>>'
     )
 
@@ -777,7 +777,7 @@ def _check_plain_text(content, answer):
     return False
 
 location = os.path.abspath(os.path.dirname(__file__))
-
+ 
 def test1():
     print('\n\n========================================================\n\n')
     input_file = os.path.join(location, 'tests', 'sample1.err')
