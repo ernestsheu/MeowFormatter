@@ -69,6 +69,12 @@ _RE_STR_TRIPLE = re.compile(tokenize.Triple)
 _RE_COMMENT = re.compile('(\'|")?' + tokenize.Comment)
 _RE_TYPING_RETURN = re.compile('->')
 
+ignore_comments = [
+    # '#-- coding:',
+    # '#-*-',
+    '#!',    
+]
+
 def _within_ignores(pos, ignore_list):
     for anno in ignore_list:
         if anno[0] <= pos < anno[1]:
@@ -85,6 +91,11 @@ def _ll_c1(lines, *args, **kwargs):
     # Convert tabs to spaces
     for ll in lines:
         ll = ll.rstrip()
+        
+        if any(ll.startswith(ign_str) for ign_str in ignore_comments):
+            new_lines.append(ll)
+            continue
+        
         ll = re.sub("\t", "    ", ll)
         if '#-#--' in ll:
             while len(ll) > 80: ll = ll[:-1]
@@ -125,7 +136,7 @@ def _ll_string(content, ignore_comment = False, *arg, **kwargs):
     comment_list = [m for m in comment_list if not _within_ignores(m.start(), ignore_list)]
     ignore_list += [(m.start(), last_pos) for m in comment_list]
 
-    if not comment_list and content.count('#') > 1:
+    if not comment_list and content.count('#') > 1:        
         last_comment_pos = content.rindex('#')
         if not _within_ignores(last_comment_pos, ignore_list):
             ignore_list.append((last_comment_pos, last_pos))
@@ -133,6 +144,17 @@ def _ll_string(content, ignore_comment = False, *arg, **kwargs):
     # for r in ignore_list:
     #    _logger.error('%02d-%02d: %s' % (r[0], r[1], content[r[0]:r[1]]))
 
+    # tmp_ignores = ignore_list[:]
+    # _logger.info('xxxxxxxxx - xxxxxxxxxxxxxx')
+    # for pattern in ["(\d+.)?\d+E-\d+"]:
+    #     tmp_list = []
+    #     for m in re.finditer(pattern, content):
+    #         if _within_ignores(m.start(), tmp_ignores):
+    #             continue
+    #         tmp_list.append((m.start(), m.end()))
+    #         _logger.info('xxx - %s', m)
+    #     ignore_list += tmp_list
+        
     return ignore_list
 
 def _ll_operator(content, *arg, **kwargs):
@@ -175,6 +197,9 @@ def _ll_operator(content, *arg, **kwargs):
 
         ret_cont = tmp_cont
         for m in m_list:
+            # check float
+            if re.search('(\d+.)?\d+E-\d+', m[0].group()):
+                continue            
             keys = repl_op(m[0], ignores = m[1])
             if keys == m[0].group():
                 continue
@@ -345,6 +370,8 @@ def _ll_whitespace_dict(content, *arg, **kwargs):
 def _ll_whitespace_comment(content, *arg, **kwargs):
     if '#-#--' in content:
         return content
+    if '#!/' in content:
+        return content
 
     prog = re.compile(r"([ ]*)?(#)([ ])?")
 
@@ -358,7 +385,7 @@ def _ll_whitespace_comment(content, *arg, **kwargs):
     pos = m.start()
     if _within_ignores(pos, ignore_list):
         return content
-    old_str = m.group()
+    old_str = m.group()    
     new_str = ''.join(m.groups()[:2]) + ' '
     content = content.replace(old_str, new_str, 1)
 
@@ -394,6 +421,8 @@ def search_comment_position(content):
         rel = m.groups()
         if rel[0] and re.search('(\'|")#([0-9A-Fa-f]{6})(\'|")', m.group()):
             continue
+        if any(s in m.group() for s in ignore_comments):
+            continue
         ignore_list.append((m.start(), m.end()))
 
     # print(ignore_list)
@@ -423,7 +452,7 @@ def search_string_position(content):
             if '\n' in m.group():
                 continue
             tmp_list.append((m.start(), m.end()))
-        ignore_list += tmp_list
+        ignore_list += tmp_list    
 
     # print(ignore_list)
     #for r in ignore_list:
